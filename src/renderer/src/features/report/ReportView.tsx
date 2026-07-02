@@ -259,7 +259,12 @@ export function ReportView(): JSX.Element {
               <tbody>
                 {overview.map(({ h, result, n, pValue }) => (
                   <tr key={h.id}>
-                    <td>{headerTitle(h)}</td>
+                    <td>
+                      {headerTitle(h)}
+                      {(h.subsamples ?? 1) > 1 && (
+                        <span className="muted"> · mean of {h.subsamples} subsamples</span>
+                      )}
+                    </td>
                     <td className="num">{n}</td>
                     {result ? (
                       <>
@@ -294,6 +299,11 @@ export function ReportView(): JSX.Element {
           result ? (
             <div className="card report-assessment" key={h.id}>
               <h2>{headerTitle(h)}</h2>
+              {(h.subsamples ?? 1) > 1 && (
+                <p className="muted" style={{ marginTop: 0 }}>
+                  Each plot value is the mean of {h.subsamples} subsamples.
+                </p>
+              )}
               <h3 style={{ margin: '4px 0' }}>Analysis of Variance</h3>
               <AnovaTable result={result} />
               <h3 style={{ margin: '16px 0 4px' }}>Treatment Means ({result.criticalValueLabel})</h3>

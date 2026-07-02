@@ -98,7 +98,8 @@ describe('trial + plots + assessments', () => {
       ordinal: 0,
       origin: 'core',
       locked: true,
-      analyze: true
+      analyze: true,
+      subsamples: 1
     })
     return { headerId, plots: dao.listPlots(trialId) }
   }
@@ -119,19 +120,39 @@ describe('trial + plots + assessments', () => {
 
   it('sets, updates, and clears assessment values', () => {
     const { headerId, plots } = seedTrial()
-    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, value: 12.5 })
-    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[1].id!, value: 8 })
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, subsample: 1, value: 12.5 })
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[1].id!, subsample: 1, value: 8 })
     let values = dao.listAssessmentValues(plots[0].trialId)
     expect(values).toHaveLength(2)
 
     // Update existing cell.
-    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, value: 99 })
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, subsample: 1, value: 99 })
     values = dao.listAssessmentValues(plots[0].trialId)
     expect(values.find((v) => v.plotId === plots[0].id)!.value).toBe(99)
 
     // Null clears the cell.
-    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, value: null })
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, subsample: 1, value: null })
     expect(dao.listAssessmentValues(plots[0].trialId)).toHaveLength(1)
+  })
+
+  it('stores subsamples independently per (header, plot, subsample)', () => {
+    const { headerId, plots } = seedTrial()
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, subsample: 1, value: 4 })
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, subsample: 2, value: 6 })
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, subsample: 3, value: 8 })
+    const forPlot = () =>
+      dao.listAssessmentValues(plots[0].trialId).filter((v) => v.plotId === plots[0].id)
+    expect(forPlot()).toHaveLength(3)
+    expect(forPlot().map((v) => v.value).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([4, 6, 8])
+
+    // Updating one subsample leaves the others intact.
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, subsample: 2, value: 60 })
+    expect(dao.getAssessmentValue(headerId, plots[0].id!, 2)).toBe(60)
+    expect(dao.getAssessmentValue(headerId, plots[0].id!, 1)).toBe(4)
+
+    // Clearing one subsample removes only that row.
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId: plots[0].id!, subsample: 3, value: null })
+    expect(forPlot()).toHaveLength(2)
   })
 
   it('swaps treatment assignments between two plots', () => {
@@ -159,14 +180,15 @@ describe('trial + plots + assessments', () => {
 describe('assessment definitions', () => {
   it('replaces and lists protocol-owned assessment defs', () => {
     const defs: AssessmentDef[] = [
-      { partRated: 'PLANT', ratingType: 'CONTRO', ratingUnit: '%', timing: '7 DA-A', ratingDate: '', description: 'Control 7', ordinal: 0, analyze: true },
-      { partRated: 'PLANT', ratingType: 'NOTE', ratingUnit: '', timing: '', ratingDate: '', description: 'Notes', ordinal: 1, analyze: false }
+      { partRated: 'PLANT', ratingType: 'CONTRO', ratingUnit: '%', timing: '7 DA-A', ratingDate: '', description: 'Control 7', ordinal: 0, analyze: true, subsamples: 5 },
+      { partRated: 'PLANT', ratingType: 'NOTE', ratingUnit: '', timing: '', ratingDate: '', description: 'Notes', ordinal: 1, analyze: false, subsamples: 1 }
     ]
     dao.replaceAssessmentDefs(defs)
     const back = dao.listAssessmentDefs()
     expect(back).toHaveLength(2)
     expect(back.map((d) => d.timing)).toEqual(['7 DA-A', ''])
     expect(back.map((d) => d.analyze)).toEqual([true, false]) // analyze flag round-trips
+    expect(back.map((d) => d.subsamples)).toEqual([5, 1]) // subsample count round-trips
   })
 })
 
@@ -180,7 +202,7 @@ describe('protocol → trial', () => {
       [1, 2].map((n) => ({ number: n, name: `T${n}`, product: '', rate: '', rateUnit: '', type: '' }))
     )
     dao.replaceAssessmentDefs([
-      { partRated: 'PLANT', ratingType: 'CONTRO', ratingUnit: '%', timing: '14 DA-A', ratingDate: '', description: 'Control', ordinal: 0, analyze: false }
+      { partRated: 'PLANT', ratingType: 'CONTRO', ratingUnit: '%', timing: '14 DA-A', ratingDate: '', description: 'Control', ordinal: 0, analyze: false, subsamples: 4 }
     ])
     const uid = dao.getProtocol().protocolUid
     closeProject()
@@ -215,6 +237,7 @@ describe('protocol → trial', () => {
     expect(headers[0].origin).toBe('core')
     expect(headers[0].locked).toBe(true)
     expect(headers[0].analyze).toBe(false) // analyze flag carried from the protocol def
+    expect(headers[0].subsamples).toBe(4) // subsample count carried from the protocol def
   })
 
   it('guards lock protocol + core edits but allow site columns in a trial', () => {
@@ -242,7 +265,8 @@ describe('protocol → trial', () => {
       ordinal: 1,
       origin: 'site',
       locked: false,
-      analyze: true
+      analyze: true,
+      subsamples: 1
     })
     expect(() => assertHeaderEditable(siteId)).not.toThrow()
   })

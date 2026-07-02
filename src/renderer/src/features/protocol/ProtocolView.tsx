@@ -225,7 +225,7 @@ export function ProtocolView(): JSX.Element {
 function CoreAssessments({ readOnly }: { readOnly: boolean }): JSX.Element {
   const { snapshot, setSnapshot, run } = useStore()
   const defs = snapshot!.assessmentDefs
-  const [draft, setDraft] = useState({ partRated: '', ratingType: '', ratingUnit: '', timing: '' })
+  const [draft, setDraft] = useState({ partRated: '', ratingType: '', ratingUnit: '', timing: '', subsamples: 1 })
 
   const save = (next: AssessmentDef[]): void => {
     run('Saving assessments', async () => {
@@ -246,10 +246,11 @@ function CoreAssessments({ readOnly }: { readOnly: boolean }): JSX.Element {
         description:
           [draft.ratingType, draft.partRated, draft.timing].filter(Boolean).join(' ') || 'Assessment',
         ordinal: defs.length,
-        analyze: true
+        analyze: true,
+        subsamples: Math.max(1, draft.subsamples || 1)
       }
     ])
-    setDraft({ partRated: '', ratingType: '', ratingUnit: '', timing: '' })
+    setDraft({ partRated: '', ratingType: '', ratingUnit: '', timing: '', subsamples: 1 })
   }
 
   const toggleAnalyze = (i: number): void => {
@@ -271,6 +272,7 @@ function CoreAssessments({ readOnly }: { readOnly: boolean }): JSX.Element {
               <th>Part rated</th>
               <th>Unit</th>
               <th>Timing</th>
+              <th style={{ width: 70 }}>Subs</th>
               <th style={{ width: 80 }}>Analyze</th>
               {!readOnly && <th style={{ width: 40 }}></th>}
             </tr>
@@ -282,6 +284,7 @@ function CoreAssessments({ readOnly }: { readOnly: boolean }): JSX.Element {
                 <td>{d.partRated || '—'}</td>
                 <td>{d.ratingUnit || '—'}</td>
                 <td>{d.timing || '—'}</td>
+                <td className="num">{d.subsamples ?? 1}</td>
                 <td className="num">
                   <input
                     type="checkbox"
@@ -335,6 +338,16 @@ function CoreAssessments({ readOnly }: { readOnly: boolean }): JSX.Element {
               placeholder="e.g. 14 DA-A"
               value={draft.timing}
               onChange={(e) => setDraft({ ...draft, timing: e.target.value })}
+            />
+          </div>
+          <div style={{ width: 90 }}>
+            <label>Subsamples</label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={draft.subsamples}
+              onChange={(e) => setDraft({ ...draft, subsamples: Number(e.target.value) })}
             />
           </div>
           <button className="primary" onClick={add}>

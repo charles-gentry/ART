@@ -119,7 +119,9 @@ export const AssessmentDef = z.object({
   description: z.string().default(''),
   ordinal: z.number().int().default(0),
   /** Whether this assessment is included in ANOVA and the report. */
-  analyze: z.boolean().default(true)
+  analyze: z.boolean().default(true),
+  /** Measurements recorded per plot; >1 are averaged to the plot value before ANOVA. */
+  subsamples: z.number().int().min(1).max(50).default(1)
 })
 export type AssessmentDef = z.infer<typeof AssessmentDef>
 
@@ -133,6 +135,8 @@ export type AssessmentHeader = z.infer<typeof AssessmentHeader>
 export const AssessmentValue = z.object({
   assessmentHeaderId: z.number().int(),
   plotId: z.number().int(),
+  /** 1-based subsample index; 1 is the default single measurement. */
+  subsample: z.number().int().min(1).default(1),
   value: z.number().nullable()
 })
 export type AssessmentValue = z.infer<typeof AssessmentValue>

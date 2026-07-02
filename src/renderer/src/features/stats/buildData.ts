@@ -7,20 +7,33 @@ export interface Observation {
 }
 
 /**
- * Assemble long-form observations for one assessment header from the snapshot,
- * skipping plots with no recorded value. `treatment` is the treatment *number*.
+ * Assemble long-form observations for one assessment header from the snapshot:
+ * one observation per plot, whose value is the mean of that plot's recorded
+ * subsamples (a single measurement is just the mean of one). Plots with no value
+ * and excluded plots are omitted. `treatment` is the treatment *number*.
  */
 export function buildObservations(snapshot: ProjectSnapshot, headerId: number): Observation[] {
   const plotById = new Map(snapshot.plots.map((p) => [p.id!, p]))
   const trtNumberById = new Map(snapshot.treatments.map((t) => [t.id!, t.number]))
-  const out: Observation[] = []
+  // Accumulate subsample sum + count per plot, preserving first-seen order.
+  const acc = new Map<number, { sum: number; count: number; rep: number; treatment: number }>()
   for (const v of snapshot.assessmentValues) {
     if (v.assessmentHeaderId !== headerId || v.value === null) continue
     const plot = plotById.get(v.plotId)
     if (!plot || plot.excluded) continue // excluded plots are omitted from analysis
     const treatment = trtNumberById.get(plot.treatmentId)
     if (treatment === undefined) continue
-    out.push({ treatment, rep: plot.rep, value: v.value })
+    const cur = acc.get(v.plotId)
+    if (cur) {
+      cur.sum += v.value
+      cur.count += 1
+    } else {
+      acc.set(v.plotId, { sum: v.value, count: 1, rep: plot.rep, treatment })
+    }
+  }
+  const out: Observation[] = []
+  for (const { sum, count, rep, treatment } of acc.values()) {
+    out.push({ treatment, rep, value: sum / count })
   }
   return out
 }

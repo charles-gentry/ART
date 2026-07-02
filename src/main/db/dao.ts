@@ -149,7 +149,8 @@ export function listAssessmentDefs(db: Database.Database = getDb()): AssessmentD
     ratingDate: r.rating_date as string,
     description: r.description as string,
     ordinal: r.ordinal as number,
-    analyze: !!(r.analyze as number)
+    analyze: !!(r.analyze as number),
+    subsamples: (r.subsamples as number) ?? 1
   }))
 }
 
@@ -157,10 +158,17 @@ export function replaceAssessmentDefs(defs: AssessmentDef[], db: Database.Databa
   const tx = db.transaction((items: AssessmentDef[]) => {
     db.prepare('DELETE FROM assessment_def').run()
     const ins = db.prepare(
-      `INSERT INTO assessment_def (part_rated, rating_type, rating_unit, timing, rating_date, description, ordinal, analyze)
-       VALUES (@partRated, @ratingType, @ratingUnit, @timing, @ratingDate, @description, @ordinal, @analyze)`
+      `INSERT INTO assessment_def (part_rated, rating_type, rating_unit, timing, rating_date, description, ordinal, analyze, subsamples)
+       VALUES (@partRated, @ratingType, @ratingUnit, @timing, @ratingDate, @description, @ordinal, @analyze, @subsamples)`
     )
-    items.forEach((d, i) => ins.run({ ...d, ordinal: d.ordinal ?? i, analyze: d.analyze === false ? 0 : 1 }))
+    items.forEach((d, i) =>
+      ins.run({
+        ...d,
+        ordinal: d.ordinal ?? i,
+        analyze: d.analyze === false ? 0 : 1,
+        subsamples: d.subsamples ?? 1
+      })
+    )
   })
   tx(defs)
 }
@@ -309,7 +317,8 @@ export function listAssessmentHeaders(
     ordinal: r.ordinal as number,
     origin: r.origin as AssessmentHeader['origin'],
     locked: !!(r.locked as number),
-    analyze: !!(r.analyze as number)
+    analyze: !!(r.analyze as number),
+    subsamples: (r.subsamples as number) ?? 1
   }))
 }
 
@@ -317,19 +326,20 @@ export function upsertAssessmentHeader(
   h: AssessmentHeader,
   db: Database.Database = getDb()
 ): number {
-  const flags = { locked: h.locked ? 1 : 0, analyze: h.analyze === false ? 0 : 1 }
+  const flags = { locked: h.locked ? 1 : 0, analyze: h.analyze === false ? 0 : 1, subsamples: h.subsamples ?? 1 }
   if (h.id) {
     db.prepare(
       `UPDATE assessment_header SET part_rated=@partRated, rating_type=@ratingType,
         rating_unit=@ratingUnit, timing=@timing, rating_date=@ratingDate,
-        description=@description, ordinal=@ordinal, origin=@origin, locked=@locked, analyze=@analyze WHERE id=@id`
+        description=@description, ordinal=@ordinal, origin=@origin, locked=@locked, analyze=@analyze,
+        subsamples=@subsamples WHERE id=@id`
     ).run({ ...h, ...flags })
     return h.id
   }
   const info = db
     .prepare(
-      `INSERT INTO assessment_header (trial_id, part_rated, rating_type, rating_unit, timing, rating_date, description, ordinal, origin, locked, analyze)
-       VALUES (@trialId, @partRated, @ratingType, @ratingUnit, @timing, @ratingDate, @description, @ordinal, @origin, @locked, @analyze)`
+      `INSERT INTO assessment_header (trial_id, part_rated, rating_type, rating_unit, timing, rating_date, description, ordinal, origin, locked, analyze, subsamples)
+       VALUES (@trialId, @partRated, @ratingType, @ratingUnit, @timing, @ratingDate, @description, @ordinal, @origin, @locked, @analyze, @subsamples)`
     )
     .run({ ...h, origin: h.origin ?? 'site', ...flags })
   return info.lastInsertRowid as number
@@ -356,7 +366,8 @@ export function getAssessmentHeader(
     ordinal: r.ordinal as number,
     origin: r.origin as AssessmentHeader['origin'],
     locked: !!(r.locked as number),
-    analyze: !!(r.analyze as number)
+    analyze: !!(r.analyze as number),
+    subsamples: (r.subsamples as number) ?? 1
   }
 }
 
@@ -370,7 +381,7 @@ export function listAssessmentValues(
 ): AssessmentValue[] {
   const rows = db
     .prepare(
-      `SELECT av.assessment_header_id, av.plot_id, av.value
+      `SELECT av.assessment_header_id, av.plot_id, av.subsample, av.value
        FROM assessment_value av
        JOIN plot p ON p.id = av.plot_id
        WHERE p.trial_id = ?`
@@ -379,37 +390,40 @@ export function listAssessmentValues(
   return rows.map((r) => ({
     assessmentHeaderId: r.assessment_header_id as number,
     plotId: r.plot_id as number,
+    subsample: (r.subsample as number) ?? 1,
     value: r.value as number | null
   }))
 }
 
-/** Read one cell's current value (null if unset). Used to capture old→new for audit. */
+/** Read one subsample cell's current value (null if unset). Used to capture old→new for audit. */
 export function getAssessmentValue(
   assessmentHeaderId: number,
   plotId: number,
+  subsample: number,
   db: Database.Database = getDb()
 ): number | null {
   const r = db
     .prepare(
-      `SELECT value FROM assessment_value WHERE assessment_header_id = ? AND plot_id = ?`
+      `SELECT value FROM assessment_value WHERE assessment_header_id = ? AND plot_id = ? AND subsample = ?`
     )
-    .get(assessmentHeaderId, plotId) as { value: number | null } | undefined
+    .get(assessmentHeaderId, plotId, subsample) as { value: number | null } | undefined
   return r ? r.value : null
 }
 
-/** Set (or clear) one cell. A null value deletes the row. */
+/** Set (or clear) one subsample cell. A null value deletes the row. */
 export function setAssessmentValue(v: AssessmentValue, db: Database.Database = getDb()): void {
+  const subsample = v.subsample ?? 1
   if (v.value === null || Number.isNaN(v.value)) {
     db.prepare(
-      'DELETE FROM assessment_value WHERE assessment_header_id = ? AND plot_id = ?'
-    ).run(v.assessmentHeaderId, v.plotId)
+      'DELETE FROM assessment_value WHERE assessment_header_id = ? AND plot_id = ? AND subsample = ?'
+    ).run(v.assessmentHeaderId, v.plotId, subsample)
     return
   }
   db.prepare(
-    `INSERT INTO assessment_value (assessment_header_id, plot_id, value)
-     VALUES (@assessmentHeaderId, @plotId, @value)
-     ON CONFLICT (assessment_header_id, plot_id) DO UPDATE SET value = excluded.value`
-  ).run(v)
+    `INSERT INTO assessment_value (assessment_header_id, plot_id, subsample, value)
+     VALUES (@assessmentHeaderId, @plotId, @subsample, @value)
+     ON CONFLICT (assessment_header_id, plot_id, subsample) DO UPDATE SET value = excluded.value`
+  ).run({ ...v, subsample })
 }
 
 // --- Analysis cache ---------------------------------------------------------
@@ -475,7 +489,8 @@ export function materializeCoreHeaders(trialId: number, db: Database.Database = 
         ordinal: d.ordinal ?? i,
         origin: 'core',
         locked: true,
-        analyze: d.analyze
+        analyze: d.analyze,
+        subsamples: d.subsamples ?? 1
       },
       db
     )

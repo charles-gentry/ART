@@ -72,12 +72,13 @@ describe('audit trail', () => {
       ordinal: 0,
       origin: 'core',
       locked: true,
-      analyze: true
+      analyze: true,
+      subsamples: 1
     })
     const plotId = dao.listPlots(trialId)[0].id!
 
-    expect(dao.getAssessmentValue(headerId, plotId)).toBeNull()
-    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId, value: 42 })
-    expect(dao.getAssessmentValue(headerId, plotId)).toBe(42)
+    expect(dao.getAssessmentValue(headerId, plotId, 1)).toBeNull()
+    dao.setAssessmentValue({ assessmentHeaderId: headerId, plotId, subsample: 1, value: 42 })
+    expect(dao.getAssessmentValue(headerId, plotId, 1)).toBe(42)
   })
 })
