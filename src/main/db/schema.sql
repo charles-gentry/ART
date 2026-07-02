@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS assessment_def (
   rating_date TEXT NOT NULL DEFAULT '',
   description TEXT NOT NULL DEFAULT '',
   ordinal     INTEGER NOT NULL DEFAULT 0,
-  analyze     INTEGER NOT NULL DEFAULT 1 -- include in ANOVA / report
+  analyze     INTEGER NOT NULL DEFAULT 1, -- include in ANOVA / report
+  subsamples  INTEGER NOT NULL DEFAULT 1  -- measurements recorded per plot (>1 = averaged)
 );
 
 -- The local trial instance. design/replicates/plot dimensions live on the protocol;
@@ -112,15 +113,17 @@ CREATE TABLE IF NOT EXISTS assessment_header (
   ordinal     INTEGER NOT NULL DEFAULT 0,
   origin      TEXT NOT NULL DEFAULT 'site' CHECK (origin IN ('core', 'site')),
   locked      INTEGER NOT NULL DEFAULT 0,
-  analyze     INTEGER NOT NULL DEFAULT 1 -- include in ANOVA / report
+  analyze     INTEGER NOT NULL DEFAULT 1, -- include in ANOVA / report
+  subsamples  INTEGER NOT NULL DEFAULT 1  -- measurements recorded per plot (>1 = averaged)
 );
 CREATE INDEX IF NOT EXISTS idx_header_trial ON assessment_header(trial_id);
 
 CREATE TABLE IF NOT EXISTS assessment_value (
   assessment_header_id INTEGER NOT NULL REFERENCES assessment_header(id) ON DELETE CASCADE,
   plot_id              INTEGER NOT NULL REFERENCES plot(id) ON DELETE CASCADE,
+  subsample            INTEGER NOT NULL DEFAULT 1, -- 1-based; 1 = the single/default measurement
   value                REAL,
-  PRIMARY KEY (assessment_header_id, plot_id)
+  PRIMARY KEY (assessment_header_id, plot_id, subsample)
 );
 
 CREATE TABLE IF NOT EXISTS analysis_result (

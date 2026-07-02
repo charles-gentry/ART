@@ -315,17 +315,18 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     assertLayoutLocked()
     const val = AssessmentValue.parse(v)
     const newVal = val.value === null || Number.isNaN(val.value) ? null : val.value
-    const old = dao.getAssessmentValue(val.assessmentHeaderId, val.plotId)
+    const old = dao.getAssessmentValue(val.assessmentHeaderId, val.plotId, val.subsample)
     dao.setAssessmentValue(val)
     if (old !== newVal) {
       const plot = dao.getPlot(val.plotId)
       const header = dao.getAssessmentHeader(val.assessmentHeaderId)
       const fmt = (x: number | null): string => (x === null ? '(empty)' : String(x))
+      const sub = (header?.subsamples ?? 1) > 1 ? ` [sub ${val.subsample}]` : ''
       recordAudit(
         'assessment.value.set',
         'assessment_value',
-        `Plot #${plot?.plotNumber ?? '?'} · ${header?.description || 'assessment'} · ${fmt(old)} → ${fmt(newVal)}`,
-        { plotId: val.plotId, headerId: val.assessmentHeaderId, old, new: newVal }
+        `Plot #${plot?.plotNumber ?? '?'} · ${header?.description || 'assessment'}${sub} · ${fmt(old)} → ${fmt(newVal)}`,
+        { plotId: val.plotId, headerId: val.assessmentHeaderId, subsample: val.subsample, old, new: newVal }
       )
     }
     return true

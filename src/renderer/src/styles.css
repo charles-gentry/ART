@@ -329,6 +329,11 @@ table.data td.num {
   background: #e7f1ea;
   color: var(--accent-dark);
 }
+/* Reserve the vertical scrollbar's space so column widths don't shift when the data-entry grid
+   grows tall enough to scroll (e.g. when subsample rows expand). */
+.dsg-container {
+  scrollbar-gutter: stable;
+}
 input:disabled,
 textarea:disabled,
 select:disabled {
