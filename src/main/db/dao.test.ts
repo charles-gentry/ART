@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { openProject, closeProject, getRole } from './connection.js'
+import Database from 'better-sqlite3'
+import { openProject, closeProject, getRole, getDb } from './connection.js'
 import * as dao from './dao.js'
 import { assertProtocolEditable, assertHeaderEditable } from './guards.js'
 import type { Treatment, Trial, Plot, AssessmentDef } from '@shared/types.js'
@@ -38,6 +39,14 @@ describe('protocol', () => {
     dao.saveProtocol({ ...p, title: 'Corn Rust Trial', crop: 'Corn' })
     expect(dao.getProtocol().title).toBe('Corn Rust Trial')
     expect(dao.getProtocol().crop).toBe('Corn')
+  })
+
+  it('defaults block size and round-trips the ALPHA design + block size', () => {
+    expect(dao.getProtocol().blockSize).toBe(2) // schema default
+    dao.saveProtocol({ ...dao.getProtocol(), design: 'ALPHA', blockSize: 3 })
+    const p = dao.getProtocol()
+    expect(p.design).toBe('ALPHA')
+    expect(p.blockSize).toBe(3)
   })
 })
 
@@ -103,6 +112,27 @@ describe('trial + plots + assessments', () => {
     })
     return { headerId, plots: dao.listPlots(trialId) }
   }
+
+  it('defaults plot.block to the rep, and round-trips an explicit incomplete block', () => {
+    dao.replaceTreatments(
+      [1, 2, 3, 4].map((n) => ({ number: n, name: `T${n}`, product: '', rate: '', rateUnit: '', type: '' }))
+    )
+    const t = dao.listTreatments()
+    // Two treatments per incomplete block (block size 2), one replicate: blocks 1 and 2.
+    const trialId = dao.replaceTrialWithPlots(
+      { protocolId: 1, plotRows: 2, plotCols: 2, seed: 7, ...SITE },
+      [
+        { plotNumber: 1, rep: 1, block: 1, treatmentId: t[0].id!, mapRow: 0, mapCol: 0 },
+        { plotNumber: 2, rep: 1, block: 1, treatmentId: t[1].id!, mapRow: 0, mapCol: 1 },
+        { plotNumber: 3, rep: 1, block: 2, treatmentId: t[2].id!, mapRow: 1, mapCol: 0 },
+        // block omitted -> defaults to rep
+        { plotNumber: 4, rep: 1, treatmentId: t[3].id!, mapRow: 1, mapCol: 1 }
+      ]
+    )
+    const plots = dao.listPlots(trialId)
+    expect(plots.map((p) => p.block)).toEqual([1, 1, 2, 1])
+    expect(dao.getPlot(plots[0].id!)!.block).toBe(1)
+  })
 
   it('persists a trial with plots and cascades on replace', () => {
     const { plots } = seedTrial()
@@ -307,5 +337,70 @@ describe('layout lock + plot exclusion', () => {
     expect(dao.getPlot(p.id!)).toMatchObject({ excluded: true, excludeReason: 'wrong treatment applied' })
     dao.setPlotExcluded(p.id!, false, '')
     expect(dao.getPlot(p.id!)).toMatchObject({ excluded: false, excludeReason: '' })
+  })
+})
+
+describe('schema migration (pre-v3 → v3)', () => {
+  /** Write a file with the pre-v3 schema: no block_size / plot.block, and a design CHECK that excludes ALPHA. */
+  function writeLegacyFile(path: string): void {
+    const db = new Database(path)
+    db.exec(`
+      CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+      CREATE TABLE protocol (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        protocol_uid TEXT NOT NULL DEFAULT '',
+        protocol_version INTEGER NOT NULL DEFAULT 1,
+        title TEXT NOT NULL DEFAULT '',
+        crop TEXT NOT NULL DEFAULT '',
+        target_pest TEXT NOT NULL DEFAULT '',
+        objective TEXT NOT NULL DEFAULT '',
+        investigator TEXT NOT NULL DEFAULT '',
+        season TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        design TEXT NOT NULL DEFAULT 'RCB' CHECK (design IN ('RCB', 'CRD')),
+        replicates INTEGER NOT NULL DEFAULT 4,
+        plot_width REAL NOT NULL DEFAULT 0,
+        plot_length REAL NOT NULL DEFAULT 0
+      );
+      INSERT INTO protocol (id, title, design, replicates) VALUES (1, 'Legacy', 'RCB', 5);
+      CREATE TABLE plot (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trial_id INTEGER NOT NULL,
+        plot_number INTEGER NOT NULL,
+        rep INTEGER NOT NULL,
+        treatment_id INTEGER NOT NULL,
+        map_row INTEGER NOT NULL,
+        map_col INTEGER NOT NULL,
+        excluded INTEGER NOT NULL DEFAULT 0,
+        exclude_reason TEXT NOT NULL DEFAULT ''
+      );
+      INSERT INTO meta (key, value) VALUES ('schema_version', '2'), ('role', 'protocol');
+    `)
+    db.close()
+  }
+
+  it('adds block_size/plot.block, preserves data, and accepts the ALPHA design', () => {
+    const path = join(dir, 'legacy.armproto')
+    writeLegacyFile(path)
+
+    openProject(path) // runs migrate()
+
+    // Existing data preserved through the protocol-table rebuild.
+    const p = dao.getProtocol()
+    expect(p.title).toBe('Legacy')
+    expect(p.replicates).toBe(5)
+    // New column present with its default.
+    expect(p.blockSize).toBe(2)
+    // plot.block column added.
+    const plotCols = (getDb().pragma('table_info(plot)') as { name: string }[]).map((c) => c.name)
+    expect(plotCols).toContain('block')
+    // The widened CHECK now accepts ALPHA (would have thrown on the legacy table).
+    expect(() => dao.saveProtocol({ ...p, design: 'ALPHA', blockSize: 4 })).not.toThrow()
+    expect(dao.getProtocol().design).toBe('ALPHA')
+    // schema_version bumped.
+    const ver = getDb().prepare(`SELECT value FROM meta WHERE key = 'schema_version'`).get() as {
+      value: string
+    }
+    expect(ver.value).toBe('3')
   })
 })

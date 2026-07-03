@@ -3,7 +3,69 @@ import Database from 'better-sqlite3'
 import type { Role } from '@shared/types.js'
 import schemaSql from './schema.sql?raw'
 
-const SCHEMA_VERSION = '2'
+const SCHEMA_VERSION = '3'
+
+/** Whether `table` has a column named `col`. */
+function hasColumn(db: Database.Database, table: string, col: string): boolean {
+  const rows = db.pragma(`table_info(${table})`) as { name: string }[]
+  return rows.some((r) => r.name === col)
+}
+
+/**
+ * Bring a pre-v3 file up to the current schema. `CREATE TABLE IF NOT EXISTS`
+ * (run just before this) can neither add columns nor widen a CHECK on tables
+ * that already exist, so:
+ *   - plot.block is added with a plain additive ALTER (default 0 = rep, i.e. a
+ *     complete block), which is FK-safe.
+ *   - protocol is rebuilt (SQLite can't ALTER a CHECK) to gain block_size and to
+ *     widen design's CHECK to include 'ALPHA'. The row is a singleton, so this
+ *     is cheap. Gated on block_size being absent, so it runs at most once.
+ */
+function migrate(db: Database.Database): void {
+  if (!hasColumn(db, 'plot', 'block')) {
+    db.exec(`ALTER TABLE plot ADD COLUMN block INTEGER NOT NULL DEFAULT 0`)
+  }
+
+  if (!hasColumn(db, 'protocol', 'block_size')) {
+    // Rebuild recipe: FKs off (protocol is referenced by trial), swap in a transaction, FKs on.
+    db.pragma('foreign_keys = OFF')
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE protocol_new (
+          id               INTEGER PRIMARY KEY CHECK (id = 1),
+          protocol_uid     TEXT NOT NULL DEFAULT '',
+          protocol_version INTEGER NOT NULL DEFAULT 1,
+          title            TEXT NOT NULL DEFAULT '',
+          crop             TEXT NOT NULL DEFAULT '',
+          target_pest      TEXT NOT NULL DEFAULT '',
+          objective        TEXT NOT NULL DEFAULT '',
+          investigator     TEXT NOT NULL DEFAULT '',
+          season           TEXT NOT NULL DEFAULT '',
+          notes            TEXT NOT NULL DEFAULT '',
+          design           TEXT NOT NULL DEFAULT 'RCB' CHECK (design IN ('RCB', 'CRD', 'ALPHA')),
+          replicates       INTEGER NOT NULL DEFAULT 4,
+          block_size       INTEGER NOT NULL DEFAULT 2,
+          plot_width       REAL NOT NULL DEFAULT 0,
+          plot_length      REAL NOT NULL DEFAULT 0
+        );
+        INSERT INTO protocol_new
+          (id, protocol_uid, protocol_version, title, crop, target_pest, objective,
+           investigator, season, notes, design, replicates, plot_width, plot_length)
+          SELECT id, protocol_uid, protocol_version, title, crop, target_pest, objective,
+                 investigator, season, notes, design, replicates, plot_width, plot_length
+          FROM protocol;
+        DROP TABLE protocol;
+        ALTER TABLE protocol_new RENAME TO protocol;
+      `)
+    })()
+    db.pragma('foreign_keys = ON')
+  }
+
+  db.prepare(
+    `INSERT INTO meta (key, value) VALUES ('schema_version', ?)
+     ON CONFLICT (key) DO UPDATE SET value = excluded.value`
+  ).run(SCHEMA_VERSION)
+}
 
 /**
  * Opens (or creates) an Open ARM SQLite file and ensures the schema is applied.
@@ -28,6 +90,7 @@ export function openProject(filePath: string, opts: OpenOptions = {}): Database.
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(schemaSql)
+  migrate(db)
 
   // Ensure the singleton protocol row exists (with a stable uid) and meta is seeded.
   db.prepare(
