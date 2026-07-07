@@ -11,14 +11,19 @@ statistics engine (via the [`agricolae`](https://cran.r-project.org/package=agri
 ## Features (MVP)
 
 - **Protocol editor** — trial metadata, treatment list, application timings.
-- **Randomized trial generation** — Randomized Complete Block (RCB) and Completely Randomized
-  (CRD) designs, generated in R with `agricolae::design.rcbd` / `design.crd`.
+- **Randomized trial generation** — Randomized Complete Block (RCB), Completely Randomized
+  (CRD), and resolvable Incomplete Block (Alpha) designs, generated in R with
+  `agricolae::design.rcbd` / `design.crd` / `design.alpha`. Alpha designs split each replicate
+  into incomplete blocks of a chosen size k (the treatment count must be divisible by k).
 - **Trial map** — visual plot grid with "hot edit" (click two plots to swap treatments).
-- **Assessment data entry** — spreadsheet-style grid (rows = plots, columns = assessments) with
-  paste-from-clipboard support.
+- **Assessment setup & data entry** — define assessment columns (rating type, timing, subsamples)
+  on the Assessments tab, then record measurements on a dedicated Data Entry tab: a
+  spreadsheet-style grid (rows = plots, columns = assessments) with paste-from-clipboard support.
 - **Statistics** — one-/two-way ANOVA plus mean-comparison tests (Fisher's LSD, Tukey's HSD,
   Duncan's MRT, Student-Newman-Keuls) at α = 0.01 / 0.05 / 0.10, with mean-separation letters,
-  CV, grand mean, and critical values.
+  CV, grand mean, and critical values. Alpha designs use a block-adjusted analysis
+  (`agricolae::PBIB.test`, REML with a variance-components fallback) reporting adjusted treatment
+  means and separation letters.
 - **Report** — protocol summary, treatment-means table, and a bar chart with error bars
   (Vega-Lite); export means to CSV or print/save the report as PDF.
 
@@ -92,11 +97,16 @@ One SQLite file = one project: `protocol` (singleton) · `treatment` · `applica
 `plot` · `assessment_header` · `assessment_value` (long form) · `analysis_result` (cached R output).
 See `src/main/db/schema.sql`.
 
-## Roadmap (out of scope for the MVP)
+## Roadmap
 
-Summary-across-trials (multi-trial), a tablet/field data collector, factorial & split-plot designs,
-EPPO code libraries, import from third-party trial file formats, and cloud sync. The schema is intentionally
-extensible to accommodate these.
+Planned additions, building on the extensible schema and R sidecar:
+
+- **More designs** — factorial and split-plot layouts, extending the existing design engine.
+- **Summary-across-trials** — combined multi-trial analysis and reporting.
+- **Field data collector** — a tablet-friendly mode for in-field assessment entry.
+- **EPPO code libraries** — standardized crop, pest, and disease code lookups.
+- **Import/export** — read and write third-party trial file formats.
+- **Cloud sync** — share and back up projects across devices.
 
 ## License
 
