@@ -10,3 +10,12 @@ dist-app/
 
 # Local CodeGraph index (per-developer, not shared)
 .codegraph/
+
+# Local test-project files
+*.artproto
+*.arttrial
+
+# Large / licence-encumbered EPPO data dumps (not distributed via git)
+sqlite_all.zip
+*eppocodes*.sqlite
+resources/eppocodes.sqlite

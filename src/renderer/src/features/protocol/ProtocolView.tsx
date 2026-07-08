@@ -19,11 +19,13 @@ export function ProtocolView(): JSX.Element {
   const [protocol, setProtocol] = useState<Protocol>(snapshot!.protocol)
   const [treatments, setTreatments] = useState<Treatment[]>(snapshot!.treatments)
 
-  // Keep local editable copies in sync when a new file loads.
+  // Resync local edit buffers only when a different file loads (not on every snapshot change).
+  const filePath = snapshot!.filePath
   useEffect(() => {
     setProtocol(snapshot!.protocol)
     setTreatments(snapshot!.treatments)
-  }, [snapshot!.filePath])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filePath])
 
   // Live conformance check so a non-conformant design is caught here, not downstream.
   const designValidation = validateDesign(
@@ -36,8 +38,10 @@ export function ProtocolView(): JSX.Element {
   const saveProtocol = (next: Protocol = protocol): void => {
     if (readOnly) return
     run('Saving protocol', async () => {
-      const saved = await window.art.protocol.save(next)
-      setSnapshot({ ...useStore.getState().snapshot!, protocol: saved })
+      await window.art.protocol.save(next)
+      // Refetch so library-term suggestions/labels (updated server-side) stay in sync.
+      const s = await window.art.project.snapshot()
+      if (s) setSnapshot(s)
     })
   }
 
@@ -85,8 +89,9 @@ export function ProtocolView(): JSX.Element {
     if (readOnly) return
     setTreatments(next)
     run('Saving treatments', async () => {
-      const saved = await window.art.treatments.save(next)
-      setSnapshot({ ...useStore.getState().snapshot!, treatments: saved })
+      await window.art.treatments.save(next)
+      const s = await window.art.project.snapshot()
+      if (s) setSnapshot(s)
     })
   }
 
@@ -322,8 +327,9 @@ function CoreAssessments({ readOnly }: { readOnly: boolean }): JSX.Element {
 
   const save = (next: AssessmentDef[]): void => {
     run('Saving assessments', async () => {
-      const saved = await window.art.assessments.saveDefs(next)
-      setSnapshot({ ...useStore.getState().snapshot!, assessmentDefs: saved })
+      await window.art.assessments.saveDefs(next)
+      const s = await window.art.project.snapshot()
+      if (s) setSnapshot(s)
     })
   }
 

@@ -26,9 +26,10 @@ export function assertProtocolEditable(): void {
 
 /** Reject edits to a protocol-defined (core) assessment column in a trial file. */
 export function assertHeaderEditable(headerId: number): void {
-  if (getRole() !== 'trial') return
   const h = getAssessmentHeader(headerId)
-  if (h?.origin === 'core' || h?.locked) {
+  if (!h) throw new Error(`Assessment column ${headerId} does not exist.`)
+  if (getRole() !== 'trial') return
+  if (h.origin === 'core' || h.locked) {
     throw new Error('This assessment is defined by the protocol and cannot be changed.')
   }
 }

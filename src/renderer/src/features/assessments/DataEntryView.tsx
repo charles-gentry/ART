@@ -96,6 +96,8 @@ export function DataEntryView(): JSX.Element {
       }
     }
     return out
+    // meanFor is a pure closure over valueMap (already a dep); listing it would defeat memoization.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot, headers, valueMap, treatmentName, maxSub, expanded])
 
   const columns = useMemo(() => {
@@ -117,7 +119,6 @@ export function DataEntryView(): JSX.Element {
           rowData.kind === 'base' ? subCount(h) > 1 : (rowData.sub as number) > subCount(h)
       }))
     ]
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [headers, maxSub])
 
   const onChange = (next: GridRow[]): void => {

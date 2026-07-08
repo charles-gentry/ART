@@ -44,7 +44,9 @@ function HeaderManager({
         analyze: draft.analyze,
         subsamples: Math.max(1, draft.subsamples || 1)
       })
-      setSnapshot({ ...snapshot!, assessmentHeaders: next })
+      // Refetch so the new coded terms surface in library suggestions/labels.
+      const s = await window.art.project.snapshot()
+      setSnapshot(s ?? { ...snapshot!, assessmentHeaders: next })
       setDraft({ partRated: '', ratingType: '', ratingUnit: '', timing: '', analyze: true, subsamples: 1 })
     })
   }

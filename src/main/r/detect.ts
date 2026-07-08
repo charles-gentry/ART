@@ -24,13 +24,14 @@ export function detectR(): REnvStatus {
   // R prints version to stderr on some platforms, stdout on others.
   const versionText = (version.stdout || version.stderr || '').split('\n')[0].trim()
 
-  // Check that agricolae + jsonlite load.
+  // Check that agricolae + jsonlite are available. requireNamespace resolves each package
+  // directly; installed.packages() (the previous approach) scans the whole R library and is slow.
   const pkgCheck = spawnSync(
     rscript,
     [
       '--vanilla',
       '-e',
-      'cat(all(c("agricolae","jsonlite") %in% rownames(installed.packages())))'
+      'cat(all(vapply(c("agricolae","jsonlite"), requireNamespace, logical(1), quietly = TRUE)))'
     ],
     { encoding: 'utf8' }
   )

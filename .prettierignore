@@ -1,0 +1,8 @@
+out
+dist-app
+node_modules
+coverage
+.codegraph
+.claude
+package-lock.json
+*.tsbuildinfo

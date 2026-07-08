@@ -35,7 +35,9 @@ export function SiteView(): JSX.Element {
   const canGenerate = treatmentCount >= 2
 
   const generate = (): void => {
-    const seed = seedText.trim() === '' ? undefined : Number(seedText)
+    // Blank or non-integer text = random seed; never forward NaN (R would receive NA).
+    const parsed = Number(seedText)
+    const seed = seedText.trim() === '' || !Number.isInteger(parsed) ? undefined : parsed
     run('Generating randomized trial', async () => {
       const next = await window.art.trial.generate({ ...site, seed })
       setSnapshot(next)

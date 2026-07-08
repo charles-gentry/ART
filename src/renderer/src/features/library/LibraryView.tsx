@@ -14,13 +14,15 @@ import {
  * team. This library is machine-level; each protocol carries its own snapshot to trial operators.
  */
 export function LibraryView(): JSX.Element {
-  const { run } = useStore()
+  const { run, setNotice } = useStore()
   const [terms, setTerms] = useState<PersonalTerm[]>([])
   const [category, setCategory] = useState<LibraryCategory>('rating_type')
 
   const load = (): void => {
     run('Loading library', async () => setTerms((await window.art.library.list()) ?? []))
   }
+  // Load the personal library once on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [])
 
   const rows = useMemo(() => terms.filter((t) => t.category === category), [terms, category])
@@ -42,14 +44,14 @@ export function LibraryView(): JSX.Element {
   const exportLib = (): void =>
     void run('Exporting library', async () => {
       const path = await window.art.library.exportToFile()
-      if (path) useStore.setState({ error: `Library exported to ${path}` })
+      if (path) setNotice(`Library exported to ${path}`)
     })
   const importLib = (): void =>
     void run('Importing library', async () => {
       const res = await window.art.library.importFromFile()
       if (res) {
         setTerms((await window.art.library.list()) ?? [])
-        useStore.setState({ error: `Imported library: ${res.added} added, ${res.updated} updated` })
+        setNotice(`Imported library: ${res.added} added, ${res.updated} updated`)
       }
     })
 
