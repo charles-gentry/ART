@@ -113,7 +113,7 @@ function Welcome(): JSX.Element {
 }
 
 export default function App(): JSX.Element {
-  const { snapshot, view, setView, setSnapshot, setREnv, busy, error, setError, run, sidebarOpen, toggleSidebar } =
+  const { snapshot, view, setView, setSnapshot, setREnv, busy, error, setError, notice, setNotice, run, sidebarOpen, toggleSidebar } =
     useStore()
 
   // Pick a sensible starting view for a freshly opened/created document.
@@ -262,6 +262,11 @@ export default function App(): JSX.Element {
       {error && (
         <div className="error-toast" onClick={() => setError(null)}>
           {error} <span style={{ opacity: 0.7 }}>(click to dismiss)</span>
+        </div>
+      )}
+      {notice && !error && (
+        <div className="notice-toast" onClick={() => setNotice(null)}>
+          {notice} <span style={{ opacity: 0.7 }}>(click to dismiss)</span>
         </div>
       )}
     </div>

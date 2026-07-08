@@ -54,11 +54,16 @@ tryCatch({
       emitInsufficient("Not enough data to analyze — an incomplete-block design needs at least two treatments across replicated incomplete blocks.")
     } else {
       # REML needs nlme; fall back to the variance-components fit if it isn't available.
-      runPbib <- function(m) tryCatch(
-        PBIB.test(df$block, df$treatment, df$rep, df$value, k = blockSize,
-                  method = m, test = testCode, alpha = alpha, group = TRUE, console = FALSE),
-        error = function(e) NULL
-      )
+      # PBIB.test prints a "<<< to see the objects... >>>" trailer to stdout even with
+      # console = FALSE, which would corrupt our JSON — capture.output swallows it.
+      runPbib <- function(m) tryCatch({
+        res <- NULL
+        invisible(capture.output(
+          res <- PBIB.test(df$block, df$treatment, df$rep, df$value, k = blockSize,
+                           method = m, test = testCode, alpha = alpha, group = TRUE, console = FALSE)
+        ))
+        res
+      }, error = function(e) NULL)
       pbib <- runPbib("REML"); if (is.null(pbib)) pbib <- runPbib("VC")
 
       if (is.null(pbib)) {

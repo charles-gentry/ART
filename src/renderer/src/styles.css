@@ -230,16 +230,23 @@ table.data td.num {
   margin-bottom: 16px;
   font-size: 13px;
 }
-.error-toast {
+.error-toast,
+.notice-toast {
   position: fixed;
   bottom: 18px;
   right: 18px;
-  background: var(--danger);
   color: white;
   padding: 12px 16px;
   border-radius: 8px;
   max-width: 420px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+.error-toast {
+  background: var(--danger);
+}
+.notice-toast {
+  background: var(--accent);
 }
 .busy-bar {
   position: fixed;
@@ -458,6 +465,7 @@ select:disabled {
   .sidebar,
   .busy-bar,
   .error-toast,
+  .notice-toast,
   .no-print {
     display: none !important;
   }

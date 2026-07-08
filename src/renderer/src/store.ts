@@ -18,6 +18,8 @@ interface AppState {
   rEnv: REnvStatus | null
   busy: string | null // label of an in-flight operation, or null
   error: string | null
+  /** Transient success/info confirmation (distinct from error). */
+  notice: string | null
   /** Whether the left navigation sidebar is shown. Persisted across sessions. */
   sidebarOpen: boolean
   /** ANOVA results keyed by assessment header id, shared by Stats and Report. */
@@ -28,6 +30,7 @@ interface AppState {
   setSnapshot: (s: ProjectSnapshot | null) => void
   setREnv: (s: REnvStatus | null) => void
   setError: (e: string | null) => void
+  setNotice: (n: string | null) => void
   setAov: (headerId: number, result: AovResult) => void
   resetAov: () => void
   /** Run an async op with a busy label + centralized error capture. */
@@ -40,6 +43,7 @@ export const useStore = create<AppState>((set) => ({
   rEnv: null,
   busy: null,
   error: null,
+  notice: null,
   sidebarOpen: localStorage.getItem('sidebarOpen') !== 'false',
   aovResults: {},
 
@@ -59,6 +63,7 @@ export const useStore = create<AppState>((set) => ({
     }),
   setREnv: (rEnv) => set({ rEnv }),
   setError: (error) => set({ error }),
+  setNotice: (notice) => set({ notice }),
   setAov: (headerId, result) =>
     set((state) => ({ aovResults: { ...state.aovResults, [headerId]: result } })),
   resetAov: () => set({ aovResults: {} }),

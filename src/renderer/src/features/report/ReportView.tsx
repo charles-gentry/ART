@@ -94,7 +94,14 @@ export function ReportView(): JSX.Element {
         rows.push([headerTitle(h), m.treatment, nameByNumber.get(m.treatment) ?? '', m.mean, m.group, m.n, m.std])
       }
     }
-    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    // Quote every field, and neutralize CSV/Excel formula injection: a cell beginning with
+    // = + - @ (or a leading tab/CR) is prefixed with a single quote so spreadsheets treat it as text.
+    const cell = (c: string | number): string => {
+      let s = String(c)
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+      return `"${s.replace(/"/g, '""')}"`
+    }
+    const csv = rows.map((r) => r.map(cell).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)

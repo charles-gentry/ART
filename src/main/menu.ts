@@ -51,7 +51,7 @@ export function buildMenu(win: BrowserWindow): Menu {
         {
           label: 'ART on GitHub',
           click: () => {
-            shell.openExternal('https://github.com/charles-gentry/leg')
+            shell.openExternal('https://github.com/charles-gentry/ART')
           }
         }
       ]

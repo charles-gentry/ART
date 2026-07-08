@@ -14,7 +14,8 @@ statistics engine (via the [`agricolae`](https://cran.r-project.org/package=agri
 - **Randomized trial generation** — Randomized Complete Block (RCB), Completely Randomized
   (CRD), and resolvable Incomplete Block (Alpha) designs, generated in R with
   `agricolae::design.rcbd` / `design.crd` / `design.alpha`. Alpha designs split each replicate
-  into incomplete blocks of a chosen size k (the treatment count must be divisible by k).
+  into incomplete blocks of a chosen size k; the protocol editor validates the design live and
+  blocks a non-conformant alpha layout before a trial is created and distributed.
 - **Trial map** — visual plot grid with "hot edit" (click two plots to swap treatments).
 - **Assessment setup & data entry** — define assessment columns (rating type, timing, subsamples)
   on the Assessments tab, then record measurements on a dedicated Data Entry tab: a
@@ -24,6 +25,11 @@ statistics engine (via the [`agricolae`](https://cran.r-project.org/package=agri
   CV, grand mean, and critical values. Alpha designs use a block-adjusted analysis
   (`agricolae::PBIB.test`, REML with a variance-components fallback) reporting adjusted treatment
   means and separation letters.
+- **Coded-field library** — crop, target, rating type, unit, part rated, growth stage, timing and
+  treatment type are free-type comboboxes backed by a personal library that accretes from use.
+  Suggestions are ranked by the current crop (a crop-specific rating like *awn length* surfaces on
+  cereals; general ones like *yield* rank broadly). Each protocol carries a snapshot of the terms it
+  uses to trial sites, and a Library tab lets you edit, rename, and import/export the vocabulary.
 - **Report** — protocol summary, treatment-means table, and a bar chart with error bars
   (Vega-Lite); export means to CSV or print/save the report as PDF.
 
@@ -46,14 +52,18 @@ statistics engine (via the [`agricolae`](https://cran.r-project.org/package=agri
 npm install          # installs deps; rebuilds better-sqlite3 for Electron
 npm run dev          # launch the app with hot reload
 npm run typecheck    # type-check main + renderer
+npm run lint         # ESLint (fails on warnings); npm run format for Prettier
 npm run build        # production build into out/
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+
 ### Testing
 
-Unit tests cover the SQLite DAO and the R runner. Because `better-sqlite3` is a native module,
-its build target (ABI) differs between Node and Electron. The `postinstall`/`npm run dev` path
-builds it for **Electron**; the test runner needs the **Node** build:
+Unit tests cover the SQLite DAO, the personal library, the R scripts (randomization + ANOVA), and
+the shared design/validation logic. Because `better-sqlite3` is a native module, its build target
+(ABI) differs between Node and Electron. The `postinstall`/`npm run dev` path builds it for
+**Electron**; the test runner needs the **Node** build:
 
 ```bash
 npm run rebuild:node     # build better-sqlite3 for Node (before testing)
@@ -94,8 +104,10 @@ src/
 ## Data model
 
 One SQLite file = one project: `protocol` (singleton) · `treatment` · `application` · `trial` ·
-`plot` · `assessment_header` · `assessment_value` (long form) · `analysis_result` (cached R output).
-See `src/main/db/schema.sql`.
+`plot` · `assessment_header` · `assessment_value` (long form) · `analysis_result` (cached R output) ·
+`library_term` (the coded-vocabulary snapshot that travels with the protocol). The author's
+accumulating personal library lives outside the project, in the app's user-data directory. See
+`src/main/db/schema.sql`.
 
 ## Roadmap
 
@@ -104,8 +116,7 @@ Planned additions, building on the extensible schema and R sidecar:
 - **More designs** — factorial and split-plot layouts, extending the existing design engine.
 - **Summary-across-trials** — combined multi-trial analysis and reporting.
 - **Field data collector** — a tablet-friendly mode for in-field assessment entry.
-- **EPPO code libraries** — standardized crop, pest, and disease code lookups.
-- **Import/export** — read and write third-party trial file formats.
+- **Trial-format import/export** — read and write third-party trial file formats.
 - **Cloud sync** — share and back up projects across devices.
 
 ## License
