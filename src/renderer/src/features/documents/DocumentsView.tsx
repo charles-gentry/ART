@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
-import { useStore } from '../../store'
+import { useStore, type DocKind } from '../../store'
 import { PlotGrid, type ColourBy } from './PlotGrid'
 import { timingLabel, assessmentDate } from '@shared/timing'
 import type { AssessmentHeader, Property } from '@shared/types'
 
-const DOC_TITLE: Record<'fieldmap' | 'summary', string> = {
+const DOC_TITLE: Record<DocKind, string> = {
   fieldmap: 'Field Map',
+  labels: 'Plot Labels',
+  datasheet: 'Data Collection Sheets',
+  spray: 'Spray Record',
   summary: 'Trial Summary'
 }
 
@@ -17,6 +20,8 @@ const DOC_TITLE: Record<'fieldmap' | 'summary', string> = {
 export function DocumentsView(): JSX.Element {
   const { snapshot, docKind, run } = useStore()
   const [colourBy, setColourBy] = useState<ColourBy>('treatment')
+  const [labelSize, setLabelSize] = useState<'small' | 'large'>('small')
+  const [prefilled, setPrefilled] = useState(false)
 
   const protocol = snapshot!.protocol
   const trial = snapshot!.trial
@@ -56,6 +61,28 @@ export function DocumentsView(): JSX.Element {
                 </select>
               </div>
             )}
+            {docKind === 'labels' && (
+              <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                <label style={{ margin: 0 }}>Size</label>
+                <select
+                  value={labelSize}
+                  onChange={(e) => setLabelSize(e.target.value as 'small' | 'large')}
+                >
+                  <option value="small">Small (3-up)</option>
+                  <option value="large">Large (2-up)</option>
+                </select>
+              </div>
+            )}
+            {docKind === 'datasheet' && (
+              <label className="checkbox-inline" style={{ margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={prefilled}
+                  onChange={(e) => setPrefilled(e.target.checked)}
+                />
+                Pre-fill recorded values
+              </label>
+            )}
           </div>
           <div className="row">
             <button className="primary" onClick={exportPdf}>
@@ -66,7 +93,11 @@ export function DocumentsView(): JSX.Element {
         </div>
       </div>
 
-      {docKind === 'fieldmap' ? <FieldMapDoc colourBy={colourBy} /> : <SummaryDoc />}
+      {docKind === 'fieldmap' && <FieldMapDoc colourBy={colourBy} />}
+      {docKind === 'labels' && <PlotLabelsDoc size={labelSize} />}
+      {docKind === 'datasheet' && <DataSheetDoc prefilled={prefilled} />}
+      {docKind === 'spray' && <SprayRecordDoc />}
+      {docKind === 'summary' && <SummaryDoc />}
     </>
   )
 }
@@ -285,6 +316,246 @@ function SummaryDoc(): JSX.Element {
       {/* Embedded field map */}
       <h2 className="doc-break">Field map</h2>
       <PlotGrid snapshot={snapshot!} colourBy="treatment" cell={44} />
+    </div>
+  )
+}
+
+const headerTitleOf = (h: AssessmentHeader): string =>
+  h.description || h.ratingType || `Assessment ${h.ordinal + 1}`
+const subCountOf = (h: AssessmentHeader): number => Math.max(1, h.subsamples ?? 1)
+
+/** B3 — plots in field order × assessment columns, with blank cells for recording (or pre-filled). */
+function DataSheetDoc({ prefilled }: { prefilled: boolean }): JSX.Element {
+  const { snapshot } = useStore()
+  const protocol = snapshot!.protocol
+  const trial = snapshot!.trial!
+
+  const treatment = useMemo(
+    () => new Map(snapshot!.treatments.map((t) => [t.id!, t])),
+    [snapshot]
+  )
+  const trtName = (id: number): string => {
+    const t = treatment.get(id)
+    return t ? `${t.number}. ${t.name || 'Trt ' + t.number}` : `#${id}`
+  }
+  const headers = [...snapshot!.assessmentHeaders].sort((a, b) => a.ordinal - b.ordinal)
+  const plots = [...snapshot!.plots].sort((a, b) => a.plotNumber - b.plotNumber)
+
+  const valueMap = useMemo(() => {
+    const m = new Map<string, number | null>()
+    for (const v of snapshot!.assessmentValues)
+      m.set(`${v.assessmentHeaderId}:${v.plotId}:${v.subsample ?? 1}`, v.value)
+    return m
+  }, [snapshot])
+  const meanFor = (h: AssessmentHeader, plotId: number): string => {
+    const vals: number[] = []
+    for (let s = 1; s <= subCountOf(h); s++) {
+      const v = valueMap.get(`${h.id}:${plotId}:${s}`)
+      if (v !== null && v !== undefined) vals.push(v)
+    }
+    if (!vals.length) return ''
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length
+    return String(Math.round(mean * 100) / 100)
+  }
+
+  const siteProps = snapshot!.properties.filter((p) => p.scope === 'trial')
+
+  return (
+    <div className="doc-page">
+      <DocHeader subtitle="Data collection sheet" />
+      <table className="report-meta" style={{ maxWidth: 720, marginBottom: 8 }}>
+        <tbody>
+          <tr>
+            <th>Crop</th>
+            <td>{protocol.crop || '—'}</td>
+            <th>Planting date</th>
+            <td>{trial.plantingDate || '—'}</td>
+          </tr>
+          <tr>
+            <th>Assessed by</th>
+            <td className="fill-line" />
+            <th>Date</th>
+            <td className="fill-line" />
+          </tr>
+          <tr>
+            <th>Growth stage</th>
+            <td className="fill-line" />
+            <th>Notes</th>
+            <td className="fill-line" />
+          </tr>
+          {siteProps.map((p) => (
+            <tr key={p.id}>
+              <th>{p.key}</th>
+              <td colSpan={3}>{p.value || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table className="data datasheet">
+          <thead>
+            <tr>
+              <th style={{ width: 46 }}>Plot</th>
+              <th style={{ width: 40 }}>Rep</th>
+              <th>Treatment</th>
+              {headers.map((h) => (
+                <th key={h.id}>
+                  {headerTitleOf(h)}
+                  {subCountOf(h) > 1 ? ` (×${subCountOf(h)})` : ''}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {plots.map((p) => (
+              <tr key={p.id} className={p.excluded ? 'dsg-row-excluded' : undefined}>
+                <td className="num">{p.plotNumber}</td>
+                <td className="num">{p.rep}</td>
+                <td>{trtName(p.treatmentId)}</td>
+                {headers.map((h) => (
+                  <td key={h.id} className="entry-cell">
+                    {prefilled ? meanFor(h, p.id!) : ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted doc-foot">
+        Plots are listed in ascending plot-number order.
+        {snapshot!.plots.some((p) => p.excluded) ? ' Shaded rows are excluded from analysis.' : ''}
+      </p>
+    </div>
+  )
+}
+
+/** B2 — an N-up sheet of plot labels/signs (plot #, rep, treatment, trial). */
+function PlotLabelsDoc({ size }: { size: 'small' | 'large' }): JSX.Element {
+  const { snapshot } = useStore()
+  const protocol = snapshot!.protocol
+  const isAlpha = protocol.design === 'ALPHA'
+  const treatment = useMemo(
+    () => new Map(snapshot!.treatments.map((t) => [t.id!, t])),
+    [snapshot]
+  )
+  const plots = [...snapshot!.plots].sort((a, b) => a.plotNumber - b.plotNumber)
+
+  return (
+    <div className="doc-page">
+      <div className={`label-grid ${size}`}>
+        {plots.map((p) => {
+          const t = treatment.get(p.treatmentId)
+          return (
+            <div className="plot-label" key={p.id}>
+              <div className="pl-trial">{protocol.title || 'Trial'}</div>
+              <div className="pl-plot">Plot {p.plotNumber}</div>
+              <div className="pl-meta">
+                Rep {p.rep}
+                {isAlpha ? ` · Block ${p.block}` : ''}
+              </div>
+              <div className="pl-trt">
+                {t ? `${t.number}. ${t.name || 'Treatment ' + t.number}` : `#${p.treatmentId}`}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** B5 — per-application spray record: treatments & rates applied at each timing, with conditions. */
+function SprayRecordDoc(): JSX.Element {
+  const { snapshot } = useStore()
+  const actuals = snapshot!.applicationActuals
+  const applications = [...snapshot!.applications].sort((a, b) => a.ordinal - b.ordinal)
+  const actualDate = (code: string): string =>
+    actuals.find((x) => x.timingCode === code)?.actualDate || ''
+  const condsFor = (code: string): Property[] =>
+    snapshot!.properties.filter((p) => p.scope === 'application' && p.scopeRef === code)
+
+  // Treatment program lines that spray at a given timing code.
+  const linesAt = (code: string): { number: number; name: string; product: string; rate: string }[] => {
+    const out: { number: number; name: string; product: string; rate: string }[] = []
+    for (const t of snapshot!.treatments)
+      for (const l of t.applications)
+        if (l.applicationRef === code)
+          out.push({
+            number: t.number,
+            name: t.name || `Treatment ${t.number}`,
+            product: l.product || '—',
+            rate: [l.rate, l.rateUnit].filter(Boolean).join(' ') || '—'
+          })
+    return out.sort((a, b) => a.number - b.number)
+  }
+
+  return (
+    <div className="doc-page">
+      <DocHeader subtitle="Spray / application record" />
+      {applications.length === 0 && (
+        <p className="muted">No applications are defined in the protocol.</p>
+      )}
+      {applications.map((a) => {
+        const lines = linesAt(a.timingCode)
+        const conds = condsFor(a.timingCode)
+        return (
+          <div className="spray-block" key={a.timingCode}>
+            <h2>Application {a.timingCode || '—'}</h2>
+            <table className="report-meta" style={{ maxWidth: 720, marginBottom: 6 }}>
+              <tbody>
+                <tr>
+                  <th>Target growth stage</th>
+                  <td>{a.targetGrowthStage || '—'}</td>
+                  <th>Actual date</th>
+                  <td>{actualDate(a.timingCode) || <span className="fill-line" />}</td>
+                </tr>
+                <tr>
+                  <th>Actual growth stage</th>
+                  <td className="fill-line" />
+                  <th>Operator</th>
+                  <td className="fill-line" />
+                </tr>
+                {conds.map((c) => (
+                  <tr key={c.id}>
+                    <th>{c.key}</th>
+                    <td colSpan={3}>{c.value || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <table className="data">
+              <thead>
+                <tr>
+                  <th style={{ width: 40 }}>#</th>
+                  <th>Treatment</th>
+                  <th>Product</th>
+                  <th>Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="muted">
+                      No treatments spray at this timing.
+                    </td>
+                  </tr>
+                ) : (
+                  lines.map((l, i) => (
+                    <tr key={i}>
+                      <td className="num">{l.number}</td>
+                      <td>{l.name}</td>
+                      <td>{l.product}</td>
+                      <td>{l.rate}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )
+      })}
     </div>
   )
 }
