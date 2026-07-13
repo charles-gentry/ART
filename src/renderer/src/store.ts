@@ -13,6 +13,9 @@ export type ViewId =
   | 'library'
   | 'audit'
 
+/** Which printable document the Documents view renders (selected from the Print menu). */
+export type DocKind = 'fieldmap' | 'summary'
+
 interface AppState {
   snapshot: ProjectSnapshot | null
   view: ViewId
@@ -28,8 +31,12 @@ interface AppState {
   /** ANOVA results keyed by assessment header id, shared by Stats and Report. */
   aovResults: Record<number, AovResult>
 
+  /** The printable document currently selected for the Documents view. */
+  docKind: DocKind
+
   toggleSidebar: () => void
   setView: (v: ViewId) => void
+  setDocKind: (k: DocKind) => void
   setSnapshot: (s: ProjectSnapshot | null) => void
   setREnv: (s: REnvStatus | null) => void
   setError: (e: string | null) => void
@@ -53,6 +60,7 @@ export const useStore = create<AppState>((set) => ({
   saved: false,
   sidebarOpen: localStorage.getItem('sidebarOpen') !== 'false',
   aovResults: {},
+  docKind: 'fieldmap',
 
   toggleSidebar: () =>
     set((state) => {
@@ -61,6 +69,7 @@ export const useStore = create<AppState>((set) => ({
       return { sidebarOpen }
     }),
   setView: (view) => set({ view }),
+  setDocKind: (docKind) => set({ docKind }),
   setSnapshot: (snapshot) =>
     set((state) => {
       // Drop cached ANOVA results when switching to a different file.

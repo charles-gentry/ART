@@ -4,33 +4,36 @@ import { PlotGrid, type ColourBy } from './PlotGrid'
 import { timingLabel, assessmentDate } from '@shared/timing'
 import type { AssessmentHeader, Property } from '@shared/types'
 
-type DocKind = 'fieldmap' | 'summary'
+const DOC_TITLE: Record<'fieldmap' | 'summary', string> = {
+  fieldmap: 'Field Map',
+  summary: 'Trial Summary'
+}
 
-const DOCS: { id: DocKind; label: string; title: string }[] = [
-  { id: 'fieldmap', label: 'Field Map', title: 'Field Map' },
-  { id: 'summary', label: 'Trial Summary', title: 'Trial Summary' }
-]
-
+/**
+ * Renders a single printable document, chosen from the top-level Print menu (not the workflow
+ * sidebar — printing is a utility, not a step). The page shows one document with just its
+ * print/export actions; there is no on-page document switcher.
+ */
 export function DocumentsView(): JSX.Element {
-  const { snapshot, run } = useStore()
-  const [doc, setDoc] = useState<DocKind>('fieldmap')
+  const { snapshot, docKind, run } = useStore()
   const [colourBy, setColourBy] = useState<ColourBy>('treatment')
 
   const protocol = snapshot!.protocol
   const trial = snapshot!.trial
   const isAlpha = protocol.design === 'ALPHA'
-  const active = DOCS.find((d) => d.id === doc)!
 
   const exportPdf = (): void => {
     run('Exporting PDF', async () => {
-      await window.art.report.exportPdf({ title: `${protocol.title || 'Trial'} — ${active.title}` })
+      await window.art.report.exportPdf({
+        title: `${protocol.title || 'Trial'} — ${DOC_TITLE[docKind]}`
+      })
     })
   }
 
   if (!trial) {
     return (
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>Documents</h2>
+        <h2 style={{ marginTop: 0 }}>{DOC_TITLE[docKind]}</h2>
         <p className="muted">Create a trial to generate printable field documents.</p>
       </div>
     )
@@ -39,12 +42,20 @@ export function DocumentsView(): JSX.Element {
   return (
     <>
       <div className="card no-print">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h2 style={{ margin: 0 }}>Documents</h2>
-            <p className="muted" style={{ margin: '4px 0 0' }}>
-              Field-ready printouts. Choose a document, then print or export it as PDF.
-            </p>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="row" style={{ gap: 16, alignItems: 'center' }}>
+            <h2 style={{ margin: 0 }}>{DOC_TITLE[docKind]}</h2>
+            {docKind === 'fieldmap' && (
+              <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                <label style={{ margin: 0 }}>Colour by</label>
+                <select value={colourBy} onChange={(e) => setColourBy(e.target.value as ColourBy)}>
+                  <option value="none">None</option>
+                  <option value="treatment">Treatment</option>
+                  <option value="rep">Rep</option>
+                  {isAlpha && <option value="block">Block</option>}
+                </select>
+              </div>
+            )}
           </div>
           <div className="row">
             <button className="primary" onClick={exportPdf}>
@@ -53,38 +64,9 @@ export function DocumentsView(): JSX.Element {
             <button onClick={() => window.print()}>Print</button>
           </div>
         </div>
-
-        <div className="row" style={{ marginTop: 12, gap: 16, alignItems: 'center' }}>
-          <div className="segmented">
-            {DOCS.map((d) => (
-              <button
-                key={d.id}
-                className={doc === d.id ? 'active' : ''}
-                onClick={() => setDoc(d.id)}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-          {doc === 'fieldmap' && (
-            <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-              <label style={{ margin: 0 }}>Colour by</label>
-              <select value={colourBy} onChange={(e) => setColourBy(e.target.value as ColourBy)}>
-                <option value="none">None</option>
-                <option value="treatment">Treatment</option>
-                <option value="rep">Rep</option>
-                {isAlpha && <option value="block">Block</option>}
-              </select>
-            </div>
-          )}
-        </div>
       </div>
 
-      {doc === 'fieldmap' ? (
-        <FieldMapDoc colourBy={colourBy} />
-      ) : (
-        <SummaryDoc />
-      )}
+      {docKind === 'fieldmap' ? <FieldMapDoc colourBy={colourBy} /> : <SummaryDoc />}
     </>
   )
 }
