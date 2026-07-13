@@ -54,6 +54,16 @@ export function buildMenu(win: BrowserWindow): Menu {
       ]
     },
     {
+      label: 'Print',
+      submenu: [
+        // Printable documents are a utility (not a workflow step), reached from this top-level menu.
+        // Each navigates to its print-ready view; enabled once a trial is open.
+        { id: 'print-fieldmap', label: 'Field Map', enabled: false, click: send('print.fieldmap') },
+        { id: 'print-summary', label: 'Trial Summary', enabled: false, click: send('print.summary') },
+        { id: 'print-report', label: 'Report', enabled: false, click: send('print.report') }
+      ]
+    },
+    {
       role: 'help',
       submenu: [
         {

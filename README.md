@@ -40,6 +40,11 @@ statistics engine (via the [`agricolae`](https://cran.r-project.org/package=agri
   uses to trial sites, and a Library tab lets you edit, rename, and import/export the vocabulary.
 - **Report** — protocol summary, treatment-means table, and a bar chart with error bars
   (Vega-Lite); export means to CSV or print/save the report as PDF.
+- **Printable documents** — a top-level **Print** menu produces field-ready printouts from the
+  trial: a large **field map** (colour-by treatment/rep/block), a one-page **trial summary**
+  (metadata, site details, treatments & rates, application schedule with actual dates, assessment
+  plan, and an embedded field map), and the **report**. Each renders clean via print CSS and exports
+  to PDF.
 
 ## Prerequisites
 

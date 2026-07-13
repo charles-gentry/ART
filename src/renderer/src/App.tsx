@@ -7,6 +7,7 @@ import { AssessmentsView } from './features/assessments/AssessmentsView'
 import { DataEntryView } from './features/assessments/DataEntryView'
 import { StatsView } from './features/stats/StatsView'
 import { ReportView } from './features/report/ReportView'
+import { DocumentsView } from './features/documents/DocumentsView'
 import { LibraryView } from './features/library/LibraryView'
 import { AuditView } from './features/audit/AuditView'
 import { REnvBanner } from './components/REnvBanner'
@@ -108,7 +109,7 @@ function Welcome(): JSX.Element {
 }
 
 export default function App(): JSX.Element {
-  const { snapshot, view, setView, setSnapshot, setREnv, busy, error, setError, notice, setNotice, saved, run, sidebarOpen, toggleSidebar } =
+  const { snapshot, view, setView, setDocKind, setSnapshot, setREnv, busy, error, setError, notice, setNotice, saved, run, sidebarOpen, toggleSidebar } =
     useStore()
 
   // Pick a sensible starting view for a freshly opened/created document.
@@ -164,6 +165,9 @@ export default function App(): JSX.Element {
         case 'sidebar.toggle': toggleSidebar(); break
         case 'view.library': setView('library'); break
         case 'view.audit': setView('audit'); break
+        case 'print.report': setView('report'); break
+        case 'print.fieldmap': setDocKind('fieldmap'); setView('documents'); break
+        case 'print.summary': setDocKind('summary'); setView('documents'); break
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,6 +251,7 @@ export default function App(): JSX.Element {
             {view === 'dataentry' && <DataEntryView />}
             {view === 'stats' && <StatsView />}
             {view === 'report' && <ReportView />}
+            {view === 'documents' && <DocumentsView />}
             {view === 'library' && <LibraryView />}
             {view === 'audit' && <AuditView />}
           </>
