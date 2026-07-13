@@ -9,6 +9,7 @@ export type ViewId =
   | 'dataentry'
   | 'stats'
   | 'report'
+  | 'documents'
   | 'library'
   | 'audit'
 

@@ -7,6 +7,7 @@ import { AssessmentsView } from './features/assessments/AssessmentsView'
 import { DataEntryView } from './features/assessments/DataEntryView'
 import { StatsView } from './features/stats/StatsView'
 import { ReportView } from './features/report/ReportView'
+import { DocumentsView } from './features/documents/DocumentsView'
 import { LibraryView } from './features/library/LibraryView'
 import { AuditView } from './features/audit/AuditView'
 import { REnvBanner } from './components/REnvBanner'
@@ -33,7 +34,8 @@ const NAV: Record<Role, NavItem[]> = {
     { id: 'assessments', label: 'Assessment Columns', step: 3, needsTrial: true, needsLock: true },
     { id: 'dataentry', label: 'Enter Data', step: 4, needsTrial: true, needsLock: true },
     { id: 'stats', label: 'Statistics', step: 5, needsTrial: true, needsLock: true },
-    { id: 'report', label: 'Report', step: 6, needsTrial: true, needsLock: true }
+    { id: 'report', label: 'Report', step: 6, needsTrial: true, needsLock: true },
+    { id: 'documents', label: 'Documents', needsTrial: true }
   ]
 }
 
@@ -247,6 +249,7 @@ export default function App(): JSX.Element {
             {view === 'dataentry' && <DataEntryView />}
             {view === 'stats' && <StatsView />}
             {view === 'report' && <ReportView />}
+            {view === 'documents' && <DocumentsView />}
             {view === 'library' && <LibraryView />}
             {view === 'audit' && <AuditView />}
           </>

@@ -749,6 +749,20 @@ select:disabled {
   table.data td {
     border-color: #999;
   }
+
+  /* Documents: drop the on-screen sheet frame; paginate on explicit breaks. */
+  .doc-page {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+  }
+  .doc-break {
+    break-before: page;
+  }
+  .trialmap {
+    break-inside: avoid;
+  }
 }
 
 /* Report document title block (also used lightly on screen). */
@@ -769,6 +783,28 @@ select:disabled {
 }
 .report-meta td {
   padding-right: 20px;
+}
+
+/* Printable documents (Documents area). On screen each renders as a page-like white sheet;
+   @media print drops the frame and paginates. */
+.doc-page {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px 28px;
+  margin-bottom: 16px;
+}
+.doc-title h1 {
+  margin: 0 0 2px;
+  font-size: 22px;
+}
+.doc-page h2 {
+  font-size: 15px;
+  margin: 18px 0 6px;
+}
+.doc-foot {
+  margin-top: 12px;
+  font-size: 12px;
 }
 
 /* Layout lock + plot exclusion */
