@@ -24,7 +24,8 @@
     "postinstall": "electron-builder install-app-deps",
     "package": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
-    "release": "npm run build && electron-builder --linux --publish always"
+    "release": "npm run build && electron-builder --linux --publish always",
+    "release:win": "npm run build && electron-builder --win --publish always"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

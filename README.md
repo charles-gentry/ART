@@ -104,32 +104,43 @@ npm test                 # run vitest
 npm run rebuild:electron # restore the Electron build (before npm run dev)
 ```
 
-## Download & install (Linux)
+## Download & install
 
-ART ships as a self-contained **AppImage** from the
-[Releases](https://github.com/charles-gentry/ART/releases) page — no installer, no admin rights:
+Grab the build for your platform from the
+[Releases](https://github.com/charles-gentry/ART/releases) page.
+
+**Linux** — a self-contained **AppImage**, no installer, no admin rights:
 
 ```bash
 chmod +x ART-*.AppImage   # make it executable
 ./ART-*.AppImage          # run it
 ```
 
-The app **auto-updates**: on launch it checks Releases for a newer version and downloads it in the
-background, prompting you to restart when it's ready.
+**Windows** — an **NSIS installer** (`ART Setup *.exe`); run it and the app installs per-user (no
+admin rights). The installer is currently **unsigned**, so Windows SmartScreen may warn on first
+run — choose *More info → Run anyway*.
 
-The only external requirement is **R** (for the statistics engine). Install base R once from
-[r-project.org](https://www.r-project.org/), then let the app's setup banner install the
+Both builds **auto-update**: on launch the app checks Releases for a newer version and downloads it
+in the background, prompting you to restart when it's ready.
+
+The only external requirement is **R** (for the statistics engine), on every platform. Install base
+R once from [r-project.org](https://www.r-project.org/), then let the app's setup banner install the
 `agricolae` + `jsonlite` packages for you (see [Prerequisites](#prerequisites)).
 
 ### Building & releasing
 
 ```bash
 npm run package   # unpacked app in dist-app/ (for local testing)
-npm run dist      # build an AppImage locally, no publish
+npm run dist      # build a distributable for the host platform locally, no publish
 ```
 
+`npm run dist` builds the target for whatever OS you run it on (an AppImage on Linux, an NSIS
+`.exe` installer on Windows). Because `better-sqlite3` is a native module, a Windows installer must
+be built on Windows — cross-building from Linux is not supported.
+
 The `.R` scripts are shipped as `extraResources`; R itself is a prerequisite and is not bundled.
-The app icon lives at `build/icon.png` — replace it with a real logo before a public release.
+The app icon lives at `build/icon.png` (electron-builder derives the Windows icon from it) — replace
+it with a real logo before a public release.
 
 To cut a release: bump `version` in `package.json`, then tag and push:
 
@@ -137,8 +148,10 @@ To cut a release: bump `version` in `package.json`, then tag and push:
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
-The `Release` GitHub Actions workflow builds the AppImage and publishes it (plus the
-`latest-linux.yml` update manifest) to the GitHub Release for that tag.
+The `Release` GitHub Actions workflow builds on both `ubuntu-latest` and `windows-latest` and
+publishes each platform's distributable — the Linux AppImage (with `latest-linux.yml`) and the
+Windows NSIS installer (with `latest.yml`) — to the GitHub Release for that tag, so the in-app
+auto-updater sees them on every platform.
 
 ## Architecture
 
