@@ -30,3 +30,24 @@ jobs:
       - run: npx electron-builder --linux --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # postinstall runs `electron-builder install-app-deps`, rebuilding
+      # better-sqlite3 for the Windows Electron ABI — correct for packaging.
+      - run: npm ci
+
+      # Build the renderer/main/preload, then package + publish the NSIS
+      # installer and its latest.yml update manifest to the GitHub Release.
+      - run: npm run build
+      - run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
